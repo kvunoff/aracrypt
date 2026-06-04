@@ -142,9 +142,6 @@ fn run() -> Result<(), String> {
 
     let ctx = fasm::FasmContext::new(pe_data.is_64bit);
 
-    ctx.clean_generated()
-        .map_err(|e| format!("Cannot clean generated files: {}", e))?;
-
     ctx.write_header(pe_data.is_gui)
         .map_err(|e| format!("Cannot write header: {}", e))?;
     msg_verbose("Written main_prolog.inc", cli.verbose);
@@ -191,7 +188,7 @@ fn run() -> Result<(), String> {
 
     msg_status("Compiling with FASM...");
 
-    let failed = fasm::compile_container(pe_data.is_64bit, &cli.output, cli.verbose)
+    let failed = fasm::compile_container(&ctx, &cli.output, cli.verbose)
         .map_err(|e| format!("FASM invocation failed: {}", e))?;
 
     if failed {
@@ -201,8 +198,7 @@ fn run() -> Result<(), String> {
             eprintln!("[*] Re-run with -v to see FASM output");
         }
 
-        ctx.clean_generated()
-            .map_err(|e| format!("Cleanup failed: {}", e))?;
+        ctx.clean();
         return Err("FASM compilation failed".into());
     }
 
@@ -214,8 +210,7 @@ fn run() -> Result<(), String> {
             .unwrap_or_else(|_| "?".into())
     ));
 
-    ctx.clean_generated()
-        .map_err(|e| format!("Cleanup failed: {}", e))?;
+    ctx.clean();
 
     Ok(())
 }

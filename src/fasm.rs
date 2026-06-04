@@ -30,11 +30,6 @@ const AES_INC_FILENAME: &str = "aes.inc";
 const AES_ASM_FILENAME: &str = "aes.asm";
 const AES_DECRYPTION_FILENAME: &str = "decryptexecutable.asm";
 
-pub fn container_dir(is_64bit: bool) -> PathBuf {
-    let base = stub_base_dir();
-    base.join(if is_64bit { CONTAINER64_DIR } else { CONTAINER32_DIR })
-}
-
 fn stub_base_dir() -> PathBuf {
     let relative = PathBuf::from("stub");
     if relative.exists() && relative.join("Container/64/main.asm").exists() {
@@ -47,15 +42,21 @@ fn stub_base_dir() -> PathBuf {
     relative
 }
 
+fn source_container_dir(is_64bit: bool) -> PathBuf {
+    stub_base_dir().join(if is_64bit { CONTAINER64_DIR } else { CONTAINER32_DIR })
+}
+
 pub struct FasmContext {
     pub dir: PathBuf,
     pub is_64bit: bool,
+    work_dir: PathBuf,
 }
 
 impl FasmContext {
     pub fn new(is_64bit: bool) -> Self {
-        let dir = container_dir(is_64bit);
-        FasmContext { dir, is_64bit }
+        let src = source_container_dir(is_64bit);
+        let work = make_work_dir(&src);
+        FasmContext { dir: work.clone(), is_64bit, work_dir: work }
     }
 
     pub fn write_header(&self, is_gui: bool) -> std::io::Result<()> {
@@ -233,37 +234,49 @@ impl FasmContext {
         fs::write(&path, &content)
     }
 
-    pub fn clean_generated(&self) -> std::io::Result<()> {
-        let files = [
-            MAIN_PROLOG_FILENAME,
-            IMAGE_BASE_FILENAME,
-            IMAGE_SIZE_FILENAME,
-            INFILE_ARRAY_FILENAME,
-            INFILE_SIZE_FILENAME,
-            KEY_SIZE_FILENAME,
-            LOGFILE_SELECT_FILENAME,
-            DECRYPTION_INCLUDES_FILENAME,
-            RESOURCE_ARRAY_FILENAME,
-            RESOURCE_SELECT_FILENAME,
-            API_HASHES_FILENAME,
-        ];
-        for f in &files {
-            let path = self.dir.join(f);
-            if path.exists() {
-                fs::remove_file(&path)?;
+    pub fn clean(&self) {
+        let _ = fs::remove_dir_all(&self.work_dir);
+    }
+}
+
+fn make_work_dir(src: &Path) -> PathBuf {
+    // src is like "stub/Container/64" — we need the whole stub/ tree
+    let stub_root = src.parent().and_then(|p| p.parent()).unwrap_or(src);
+    let work = std::env::temp_dir()
+        .join("aracrypt")
+        .join(&format!("{}", std::process::id()));
+    let _ = fs::remove_dir_all(&work);
+    fs::create_dir_all(&work).expect("Cannot create temp work dir");
+
+    // Copy the entire stub/ tree preserving structure for relative includes
+    copy_dir(stub_root, &work.join(stub_root.file_name().unwrap()));
+
+    // Return the work copy of the source container dir
+    let rel = src.strip_prefix(stub_root).unwrap();
+    work.join(stub_root.file_name().unwrap()).join(rel)
+}
+
+fn copy_dir(src: &Path, dst: &Path) {
+    fs::create_dir_all(dst).ok();
+    if let Ok(entries) = fs::read_dir(src) {
+        for entry in entries.flatten() {
+            let fp = entry.path();
+            let dp = dst.join(fp.file_name().unwrap());
+            if fp.is_dir() {
+                copy_dir(&fp, &dp);
+            } else if fp.is_file() {
+                let _ = fs::copy(&fp, &dp);
             }
         }
-        Ok(())
     }
 }
 
 pub fn compile_container(
-    is_64bit: bool,
+    ctx: &FasmContext,
     output_path: &Path,
     verbose: bool,
 ) -> std::io::Result<bool> {
-    let dir = container_dir(is_64bit);
-    let main_asm = dir.join(CONTAINER_MAIN_FILENAME);
+    let main_asm = ctx.dir.join(CONTAINER_MAIN_FILENAME);
 
     if verbose {
         let status = Command::new("fasm")
