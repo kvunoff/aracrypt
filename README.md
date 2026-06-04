@@ -82,21 +82,21 @@ self-decrypting `.exe`.
 
 ## Installation
 
+### Arch Linux (AUR)
+
 ```bash
-# Clone the repository
-git clone https://github.com/kvunoff/aracrypt.git
-cd aracrypt
-
-# Build (optimized release)
-cargo build --release
-
-# The binary is at target/release/aracrypt
+yay -S aracrypt
 ```
 
-Optionally, install system-wide:
+### From Source
 
 ```bash
-sudo cp target/release/aracrypt /usr/local/bin/
+git clone https://github.com/kvunoff/aracrypt.git
+cd aracrypt
+cargo build --release
+
+# Install system-wide (optional)
+sudo cp target/release/AraCrypt /usr/local/bin/aracrypt
 ```
 
 ---
