@@ -5,8 +5,8 @@ use std::process::Command;
 
 use crate::crypto;
 
-const CONTAINER32_DIR: &str = "stub/Container/32";
-const CONTAINER64_DIR: &str = "stub/Container/64";
+const CONTAINER32_DIR: &str = "Container/32";
+const CONTAINER64_DIR: &str = "Container/64";
 
 pub const MAIN_PROLOG_FILENAME: &str = "main_prolog.inc";
 pub const IMAGE_BASE_FILENAME: &str = "image_base.inc";
@@ -30,8 +30,21 @@ const AES_INC_FILENAME: &str = "aes.inc";
 const AES_ASM_FILENAME: &str = "aes.asm";
 const AES_DECRYPTION_FILENAME: &str = "decryptexecutable.asm";
 
-pub fn container_dir(is_64bit: bool) -> &'static str {
-    if is_64bit { CONTAINER64_DIR } else { CONTAINER32_DIR }
+pub fn container_dir(is_64bit: bool) -> PathBuf {
+    let base = stub_base_dir();
+    base.join(if is_64bit { CONTAINER64_DIR } else { CONTAINER32_DIR })
+}
+
+fn stub_base_dir() -> PathBuf {
+    let relative = PathBuf::from("stub");
+    if relative.exists() && relative.join("Container/64/main.asm").exists() {
+        return relative;
+    }
+    let system = PathBuf::from("/usr/share/aracrypt/stub");
+    if system.exists() {
+        return system;
+    }
+    relative
 }
 
 pub struct FasmContext {
@@ -41,7 +54,7 @@ pub struct FasmContext {
 
 impl FasmContext {
     pub fn new(is_64bit: bool) -> Self {
-        let dir = PathBuf::from(container_dir(is_64bit));
+        let dir = container_dir(is_64bit);
         FasmContext { dir, is_64bit }
     }
 
@@ -250,7 +263,7 @@ pub fn compile_container(
     verbose: bool,
 ) -> std::io::Result<bool> {
     let dir = container_dir(is_64bit);
-    let main_asm = format!("{}/{}", dir, CONTAINER_MAIN_FILENAME);
+    let main_asm = dir.join(CONTAINER_MAIN_FILENAME);
 
     if verbose {
         let status = Command::new("fasm")
