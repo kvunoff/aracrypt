@@ -6,6 +6,31 @@ pub const AES_KEY_SIZE: usize = 16;
 pub const AES_BLOCK_SIZE: usize = 16;
 pub const CHECKSUM_SIZE: usize = 4;
 
+pub const REQUIRED_APIS: &[&str] = &[
+    "LoadLibraryA",
+    "GetProcAddress",
+    "GetFileSize",
+    "CreateFileMappingA",
+    "MapViewOfFile",
+    "UnmapViewOfFile",
+    "CreateFileA",
+    "CloseHandle",
+    "DeleteFileA",
+    "GetModuleHandleA",
+    "VirtualAlloc",
+    "VirtualProtect",
+    "VirtualFree",
+    "ExitProcess",
+];
+
+pub fn djb2_hash(name: &str) -> u32 {
+    let mut hash: u32 = 5381;
+    for &b in name.as_bytes() {
+        hash = hash.wrapping_mul(33).wrapping_add(b as u32);
+    }
+    hash
+}
+
 pub fn get_checksum(data: &[u8]) -> u32 {
     data.iter().map(|&b| b as u32).sum()
 }

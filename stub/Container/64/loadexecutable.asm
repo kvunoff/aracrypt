@@ -141,7 +141,10 @@ local str1[256]:BYTE, lookup_table:QWORD, import_address_table:QWORD, dll_image_
 	writeNewLineToLog lidt_exit_error
 
 	;load the corresponding dll
-	invoke LoadLibrary, rbx
+	mov rcx, rbx
+	sub rsp, 0x20
+	call qword [api_table + API_LoadLibrary * 8]
+	add rsp, 0x20
 	test rax,rax
 	jz lidt_exit_error
 	mov [dll_image_base],rax
@@ -185,7 +188,11 @@ lidt_byname:
 	writeLog rax, lidt_exit_error
 	writeNewLineToLog lidt_exit_error
 	;API name pointer in rbx
-	invoke GetProcAddress, [dll_image_base], rbx
+	mov rcx, [dll_image_base]
+	mov rdx, rbx
+	sub rsp, 0x20
+	call qword [api_table + API_GetProcAddress * 8]
+	add rsp, 0x20
 	test rax,rax
 	jz lidt_exit_error
 	mov rbx,[import_address_table]
@@ -204,7 +211,11 @@ lidt_byordinal:
 	mov rax,rbx
 	writeRegisterToLog rax, lidt_exit_error
 	;API ordinal in rbx
-	invoke GetProcAddress, [dll_image_base], rbx
+	mov rcx, [dll_image_base]
+	mov rdx, rbx
+	sub rsp, 0x20
+	call qword [api_table + API_GetProcAddress * 8]
+	add rsp, 0x20
 	test rax,rax
 	jz lidt_exit_error
 	mov rbx,[import_address_table]
@@ -265,7 +276,13 @@ pe_header_size:QWORD, str1[256]:BYTE, vprotect_ret:QWORD
 
 	;set pe header page read-only
 	lea r12,[vprotect_ret]
-	invoke VirtualProtect, [image_base], [pe_header_size], PAGE_READONLY, r12
+	mov rcx, [image_base]
+	mov rdx, [pe_header_size]
+	mov r8, PAGE_READONLY
+	mov r9, r12
+	sub rsp, 0x20
+	call qword [api_table + API_VirtualProtect * 8]
+	add rsp, 0x20
 	test rax,rax
 	jz sp_exit_error
 
@@ -320,7 +337,13 @@ str1[256]:BYTE, vprotect_ret:QWORD, section_headers:QWORD, pe_header_size:QWORD
 	mov esi,[rdx+IMAGE_OPTIONAL_HEADER64.SizeOfImage]
 	mov [aux],rdx ;store edx, we need it later
 	lea rbx,[vprotect_ret]
-	invoke VirtualProtect, [image_base], rsi, PAGE_READWRITE, rbx
+	mov rcx, [image_base]
+	mov rdx, rsi
+	mov r8, PAGE_READWRITE
+	mov r9, rbx
+	sub rsp, 0x20
+	call qword [api_table + API_VirtualProtect * 8]
+	add rsp, 0x20
 	test rax,rax
 	jz lf_exit_error
 
@@ -464,7 +487,13 @@ ssn_set_memory:
 	add rax,[image_base]
 	mov ebx,[rdx+IMAGE_SECTION_HEADER.VirtualSize]
 	lea r12,[vprotect_ret]
-	invoke VirtualProtect,rax,rbx,[section_flags], r12
+	mov rcx, rax
+	mov rdx, rbx
+	mov r8, [section_flags]
+	mov r9, r12
+	sub rsp, 0x20
+	call qword [api_table + API_VirtualProtect * 8]
+	add rsp, 0x20
 	test rax,rax
 	jz ssn_exit_error
 

@@ -9,4 +9,5 @@ stub/Container/**/logfile_select.asm
 stub/Container/**/decryption_includes.asm
 stub/Container/**/resource.inc
 stub/Container/**/resource_select.asm
+stub/Container/**/api_hashes.inc
 *.exe

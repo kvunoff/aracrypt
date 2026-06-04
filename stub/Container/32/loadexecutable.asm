@@ -151,7 +151,8 @@ local str1[256]:BYTE, lookup_table:DWORD, import_address_table:DWORD, dll_image_
 	jz lidt_exit_error
 
 	;load the corresponding dll
-	invoke LoadLibrary, ebx
+	push ebx
+	call dword [api_table + LoadLibrary * 4]
 	test eax,eax
 	jz lidt_exit_error
 	mov [dll_image_base],eax
@@ -194,7 +195,9 @@ lidt_byname:
 	jz lidt_exit_error
 	;API name pointer in ebx
 	push ecx
-	invoke GetProcAddress, [dll_image_base], ebx
+	push ebx
+	push [dll_image_base]
+	call dword [api_table + GetProcAddress * 4]
 	pop ecx
 	test eax,eax
 	jz lidt_exit_error
@@ -219,7 +222,9 @@ lidt_byordinal:
 	jz pit_exit_error
 	;API ordinal in ebx
 	push ecx
-	invoke GetProcAddress, [dll_image_base], ebx
+	push ebx
+	push [dll_image_base]
+	call dword [api_table + GetProcAddress * 4]
 	pop ecx
 	test eax,eax
 	jz lidt_exit_error

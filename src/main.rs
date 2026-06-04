@@ -181,6 +181,10 @@ fn run() -> Result<(), String> {
         .map_err(|e| format!("Cannot write resource select: {}", e))?;
     msg_verbose("Written resource_select.asm", cli.verbose);
 
+    ctx.write_api_hashes()
+        .map_err(|e| format!("Cannot write API hashes: {}", e))?;
+    msg_verbose("Written api_hashes.inc", cli.verbose);
+
     ctx.write_decryption_includes()
         .map_err(|e| format!("Cannot write decryption includes: {}", e))?;
     msg_verbose("Written decryption_includes.asm", cli.verbose);

@@ -19,7 +19,13 @@ dec_init_key:
 
 	;create a copy of the encrypted file
 	;which is used to brute force the key
-	invoke VirtualAlloc, 0, INFILE_SIZE, MEM_COMMIT+MEM_RESERVE, PAGE_READWRITE
+	xor ecx, ecx
+	mov rdx, INFILE_SIZE
+	mov r8, MEM_COMMIT+MEM_RESERVE
+	mov r9, PAGE_READWRITE
+	sub rsp, 0x20
+	call qword [api_table + API_VirtualAlloc * 8]
+	add rsp, 0x20
 	test rax, rax
 	jz dec_exit_error
 	mov [encrypted_backup],rax
@@ -56,7 +62,12 @@ keyspace_loop:
 	jmp keyspace_loop
 
 dec_decrypted_success:
-	invoke VirtualFree, [encrypted_backup], 0, MEM_RELEASE
+	mov rcx, [encrypted_backup]
+	xor edx, edx
+	mov r8, MEM_RELEASE
+	sub rsp, 0x20
+	call qword [api_table + API_VirtualFree * 8]
+	add rsp, 0x20
 	test rax, rax
 	jz dec_exit_error
 

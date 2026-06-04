@@ -442,15 +442,28 @@ local str1[256]:BYTE, oldlogsize:QWORD, newlogsize:QWORD, contentsize:QWORD,\
 
 	 ;open file
 	 createStringLogTxt str1
-	 sub r11,r11
-	 invoke CreateFile, rax, GENERIC_READ or GENERIC_WRITE, FILE_SHARE_READ, r11, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, r11
+	 sub rsp, 0x40
+	 xor r11d, r11d
+	 mov qword [rsp+0x38], r11
+	 mov qword [rsp+0x30], FILE_ATTRIBUTE_NORMAL
+	 mov qword [rsp+0x28], OPEN_ALWAYS
+	 mov rcx, rax
+	 mov rdx, GENERIC_READ or GENERIC_WRITE
+	 mov r8, FILE_SHARE_READ
+	 mov r9, r11
+	 call qword [api_table + API_CreateFile * 8]
+	 add rsp, 0x40
 	 mov [retval],rax
 	 test rax,rax
 	 jz wl_logexit
 	 mov [filehandle],rax
 
 	 ;get logfile size
-	 invoke GetFileSize, qword [filehandle], 0
+	 mov rcx, [filehandle]
+	 xor edx, edx
+	 sub rsp, 0x20
+	 call qword [api_table + API_GetFileSize * 8]
+	 add rsp, 0x20
 	 mov [oldlogsize],rax
 
 	 ;get size of string for logfile for concatenation
@@ -460,15 +473,30 @@ local str1[256]:BYTE, oldlogsize:QWORD, newlogsize:QWORD, contentsize:QWORD,\
 	 mov [newlogsize], rax
 
 	 ;create the file mapping
-	 sub r10,r10
-	 invoke CreateFileMapping, qword [filehandle], r10, PAGE_READWRITE, r10, rax, r10
+	 sub rsp, 0x30
+	 mov [rsp+0x30], r10           ; arg6 (name) = 0
+	 mov [rsp+0x28], rax           ; arg5 = max size (from GetFileSize)
+	 mov rcx, [filehandle]         ; arg1
+	 mov rdx, r10                  ; arg2 (security) = 0
+	 mov r8, PAGE_READWRITE        ; arg3
+	 mov r9, r10                   ; arg4 (size high) = 0
+	 call qword [api_table + API_CreateFileMapping * 8]
+	 add rsp, 0x30
 	 mov [retval],rax
 	 test rax, rax
 	 jz wl_closelogfile
 	 mov [filemappingobject],rax
 
-	 sub r10,r10
-	 invoke MapViewOfFile, rax, FILE_MAP_ALL_ACCESS, r10, r10, qword [newlogsize]
+	 mov r11, rax                  ; save handle
+	 sub rsp, 0x30
+	 mov rax, [newlogsize]
+	 mov [rsp+0x28], rax           ; arg5
+	 mov rcx, r11                  ; arg1 = handle
+	 mov rdx, FILE_MAP_ALL_ACCESS  ; arg2
+	 xor r8d, r8d                  ; arg3 = 0
+	 xor r9d, r9d                  ; arg4 = 0
+	 call qword [api_table + API_MapViewOfFile * 8]
+	 add rsp, 0x30
 	 mov [retval],rax
 	 test rax, rax
 	 jz wl_closemaphandle
@@ -483,13 +511,22 @@ local str1[256]:BYTE, oldlogsize:QWORD, newlogsize:QWORD, contentsize:QWORD,\
 	 mov [retval],1
 
 wl_unmapfile:
-	 invoke UnmapViewOfFile, qword [mapaddress]
+	 mov rcx, [mapaddress]
+	 sub rsp, 0x20
+	 call qword [api_table + API_UnmapViewOfFile * 8]
+	 add rsp, 0x20
 
 wl_closemaphandle:
-	 invoke CloseHandle, qword [filemappingobject]
+	 mov rcx, [filemappingobject]
+	 sub rsp, 0x20
+	 call qword [api_table + API_CloseHandle * 8]
+	 add rsp, 0x20
 
 wl_closelogfile:
-	 invoke CloseHandle, qword [filehandle]
+	 mov rcx, [filehandle]
+	 sub rsp, 0x20
+	 call qword [api_table + API_CloseHandle * 8]
+	 add rsp, 0x20
 
 wl_logexit:
 	 mov rax,[retval]
@@ -573,7 +610,10 @@ proc initLogFile_
 local str1[256]:BYTE
 
 	createStringLogTxt str1
-	invoke DeleteFile, rax
+	mov rcx, rax
+	sub rsp, 0x20
+	call qword [api_table + API_DeleteFile * 8]
+	add rsp, 0x20
 
 	createStringStartingHyperionLines str1
 	fastcall writeLog_, rax

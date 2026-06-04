@@ -3,6 +3,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use crate::crypto;
+
 const CONTAINER32_DIR: &str = "stub/Container/32";
 const CONTAINER64_DIR: &str = "stub/Container/64";
 
@@ -17,6 +19,7 @@ const DECRYPTION_INCLUDES_FILENAME: &str = "decryption_includes.asm";
 const CONTAINER_MAIN_FILENAME: &str = "main.asm";
 pub const RESOURCE_ARRAY_FILENAME: &str = "resource.inc";
 const RESOURCE_SELECT_FILENAME: &str = "resource_select.asm";
+pub const API_HASHES_FILENAME: &str = "api_hashes.inc";
 
 const LOG_ENABLE_FILENAME: &str = "logfile_enable.asm";
 const LOG_DISABLE_FILENAME: &str = "logfile_disable.asm";
@@ -160,6 +163,63 @@ impl FasmContext {
         }
     }
 
+    pub fn write_api_hashes(&self) -> std::io::Result<()> {
+        let ptr_size = if self.is_64bit { 8 } else { 4 };
+        let mut content = String::new();
+
+        content.push_str("API_COUNT equ ");
+        content.push_str(&crypto::REQUIRED_APIS.len().to_string());
+        content.push_str("\n\n");
+
+        content.push_str("api_hashes:\n");
+        for name in crypto::REQUIRED_APIS {
+            let hash = crypto::djb2_hash(name);
+            content.push_str(&format!("    dd 0x{:08x}\n", hash));
+        }
+
+        content.push_str("\napi_table:\n");
+        for (_i, name) in crypto::REQUIRED_APIS.iter().enumerate() {
+            let label = api_label(name);
+            content.push_str(&format!("    {} ", label));
+            if ptr_size == 8 {
+                content.push_str("dq ?\n");
+            } else {
+                content.push_str("dd ?\n");
+            }
+        }
+
+        content.push('\n');
+        for (i, name) in crypto::REQUIRED_APIS.iter().enumerate() {
+            let index_equ = format!("API_{}", index_name(name));
+            content.push_str(&format!("{} equ {}\n", index_equ, i));
+        }
+
+        content.push('\n');
+        let old_names: &[(&str, &str)] = &[
+            ("LoadLibrary", "LoadLibraryA"),
+            ("GetProcAddress", "GetProcAddress"),
+            ("GetFileSize", "GetFileSize"),
+            ("CreateFileMapping", "CreateFileMappingA"),
+            ("MapViewOfFile", "MapViewOfFile"),
+            ("UnmapViewOfFile", "UnmapViewOfFile"),
+            ("CreateFile", "CreateFileA"),
+            ("CloseHandle", "CloseHandle"),
+            ("DeleteFile", "DeleteFileA"),
+            ("GetModuleHandle", "GetModuleHandleA"),
+            ("VirtualAlloc", "VirtualAlloc"),
+            ("VirtualProtect", "VirtualProtect"),
+            ("VirtualFree", "VirtualFree"),
+            ("ExitProcess", "ExitProcess"),
+        ];
+        for (short, _full) in old_names {
+            let idx = crypto::REQUIRED_APIS.iter().position(|a| *a == *_full).unwrap();
+            content.push_str(&format!("{} equ {}\n", short, idx));
+        }
+
+        let path = self.dir.join(API_HASHES_FILENAME);
+        fs::write(&path, &content)
+    }
+
     pub fn clean_generated(&self) -> std::io::Result<()> {
         let files = [
             MAIN_PROLOG_FILENAME,
@@ -172,6 +232,7 @@ impl FasmContext {
             DECRYPTION_INCLUDES_FILENAME,
             RESOURCE_ARRAY_FILENAME,
             RESOURCE_SELECT_FILENAME,
+            API_HASHES_FILENAME,
         ];
         for f in &files {
             let path = self.dir.join(f);
@@ -219,4 +280,16 @@ pub fn check_fasm_installed() -> bool {
         .stderr(std::process::Stdio::null())
         .output()
         .is_ok()
+}
+
+fn api_label(name: &str) -> String {
+    format!("p{}", name)
+}
+
+fn index_name(name: &str) -> String {
+    name.replace("CreateFileMappingA", "CreateFileMapping")
+        .replace("GetModuleHandleA", "GetModuleHandle")
+        .replace("CreateFileA", "CreateFile")
+        .replace("DeleteFileA", "DeleteFile")
+        .replace("LoadLibraryA", "LoadLibrary")
 }
