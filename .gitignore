@@ -1,0 +1,10 @@
+/target
+stub/Container/**/main_prolog.inc
+stub/Container/**/image_base.inc
+stub/Container/**/image_size.inc
+stub/Container/**/infile_array.inc
+stub/Container/**/infile_size.inc
+stub/Container/**/key_size.inc
+stub/Container/**/logfile_select.asm
+stub/Container/**/decryption_includes.asm
+*.exe
