@@ -7,4 +7,6 @@ stub/Container/**/infile_size.inc
 stub/Container/**/key_size.inc
 stub/Container/**/logfile_select.asm
 stub/Container/**/decryption_includes.asm
+stub/Container/**/resource.inc
+stub/Container/**/resource_select.asm
 *.exe

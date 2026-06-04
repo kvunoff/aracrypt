@@ -15,6 +15,8 @@ pub const KEY_SIZE_FILENAME: &str = "key_size.inc";
 const LOGFILE_SELECT_FILENAME: &str = "logfile_select.asm";
 const DECRYPTION_INCLUDES_FILENAME: &str = "decryption_includes.asm";
 const CONTAINER_MAIN_FILENAME: &str = "main.asm";
+pub const RESOURCE_ARRAY_FILENAME: &str = "resource.inc";
+const RESOURCE_SELECT_FILENAME: &str = "resource_select.asm";
 
 const LOG_ENABLE_FILENAME: &str = "logfile_enable.asm";
 const LOG_DISABLE_FILENAME: &str = "logfile_disable.asm";
@@ -132,6 +134,32 @@ impl FasmContext {
         self.write_include(LOGFILE_SELECT_FILENAME, label, false)
     }
 
+    pub fn write_resource_output(&self, resources: &[u8]) -> std::io::Result<()> {
+        let mut fasm_output = String::from("db ");
+        for (i, &byte) in resources.iter().enumerate() {
+            if i != 0 {
+                if i % 10 == 0 {
+                    fasm_output.push_str("\\\n");
+                }
+                fasm_output.push_str(", ");
+            }
+            fasm_output.push_str(&format!("0x{:x}", byte));
+        }
+        fasm_output.push('\n');
+
+        let path = self.dir.join(RESOURCE_ARRAY_FILENAME);
+        fs::write(&path, &fasm_output)
+    }
+
+    pub fn write_resource_select(&self, has_resources: bool) -> std::io::Result<()> {
+        let path = self.dir.join(RESOURCE_SELECT_FILENAME);
+        if has_resources {
+            fs::write(&path, "section '.rsrc' data readable resource\n    include 'resource.inc'\n")
+        } else {
+            fs::write(&path, "; no resources in original PE\n")
+        }
+    }
+
     pub fn clean_generated(&self) -> std::io::Result<()> {
         let files = [
             MAIN_PROLOG_FILENAME,
@@ -142,6 +170,8 @@ impl FasmContext {
             KEY_SIZE_FILENAME,
             LOGFILE_SELECT_FILENAME,
             DECRYPTION_INCLUDES_FILENAME,
+            RESOURCE_ARRAY_FILENAME,
+            RESOURCE_SELECT_FILENAME,
         ];
         for f in &files {
             let path = self.dir.join(f);

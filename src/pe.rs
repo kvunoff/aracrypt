@@ -120,6 +120,23 @@ pub struct PeData {
     pub size_of_image: u32,
     pub is_gui: bool,
     pub is_64bit: bool,
+    pub resources: Option<Vec<u8>>,
+}
+
+const IMAGE_SIZEOF_SHORT_NAME: usize = 8;
+
+#[repr(C, packed)]
+struct ImageSectionHeader {
+    name: [u8; IMAGE_SIZEOF_SHORT_NAME],
+    virtual_size: u32,
+    virtual_address: u32,
+    size_of_raw_data: u32,
+    pointer_to_raw_data: u32,
+    pointer_to_relocations: u32,
+    pointer_to_linenumbers: u32,
+    number_of_relocations: u16,
+    number_of_linenumbers: u16,
+    characteristics: u32,
 }
 
 fn read_struct<T>(data: &[u8], offset: usize) -> Option<&T> {
@@ -292,23 +309,50 @@ pub fn parse_pe(data: &[u8]) -> Option<PeData> {
 
     let pe32 = is_pe32(data, coff);
 
-    if pe32 {
+    let (image_base, size_of_image, subsystem) = if pe32 {
         let osh = get_osh32(data, coff)?;
         let owh = get_owh32(data, osh)?;
-        Some(PeData {
-            image_base: owh.image_base as u64,
-            size_of_image: owh.size_of_image,
-            is_gui: is_gui_application(owh.subsystem),
-            is_64bit: false,
-        })
+        (owh.image_base as u64, owh.size_of_image, owh.subsystem)
     } else {
         let osh = get_osh64(data, coff)?;
         let owh = get_owh64(data, osh)?;
-        Some(PeData {
-            image_base: owh.image_base,
-            size_of_image: owh.size_of_image,
-            is_gui: is_gui_application(owh.subsystem),
-            is_64bit: true,
-        })
+        (owh.image_base, owh.size_of_image, owh.subsystem)
+    };
+
+    let resources = extract_resources(data, coff);
+
+    Some(PeData {
+        image_base,
+        size_of_image,
+        is_gui: is_gui_application(subsystem),
+        is_64bit: !pe32,
+        resources,
+    })
+}
+
+fn section_headers_offset(data: &[u8], coff: &CoffHeader) -> usize {
+    let coff_off = coff as *const _ as usize - data.as_ptr() as usize;
+    coff_off + mem::size_of::<CoffHeader>() + coff.size_of_optional_header as usize
+}
+
+fn extract_resources(data: &[u8], coff: &CoffHeader) -> Option<Vec<u8>> {
+    let hdr_off = section_headers_offset(data, coff);
+    let count = coff.number_of_sections as usize;
+
+    for i in 0..count {
+        let off = hdr_off + i * mem::size_of::<ImageSectionHeader>();
+        let section: &ImageSectionHeader = read_struct(data, off)?;
+
+        let name_end = section.name.iter().position(|&b| b == 0).unwrap_or(IMAGE_SIZEOF_SHORT_NAME);
+        let name = std::str::from_utf8(&section.name[..name_end]).unwrap_or("");
+
+        if name == ".rsrc" && section.size_of_raw_data > 0 {
+            let start = section.pointer_to_raw_data as usize;
+            let size = section.size_of_raw_data as usize;
+            if start + size <= data.len() {
+                return Some(data[start..start + size].to_vec());
+            }
+        }
     }
+    None
 }

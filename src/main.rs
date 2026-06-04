@@ -171,6 +171,16 @@ fn run() -> Result<(), String> {
         .map_err(|e| format!("Cannot write logfile select: {}", e))?;
     msg_verbose("Written logfile_select.asm", cli.verbose);
 
+    let has_resources = pe_data.resources.is_some();
+    if let Some(ref resources) = pe_data.resources {
+        ctx.write_resource_output(resources)
+            .map_err(|e| format!("Cannot write resource output: {}", e))?;
+        msg_verbose(&format!("Written resources: {} bytes", resources.len()), cli.verbose);
+    }
+    ctx.write_resource_select(has_resources)
+        .map_err(|e| format!("Cannot write resource select: {}", e))?;
+    msg_verbose("Written resource_select.asm", cli.verbose);
+
     ctx.write_decryption_includes()
         .map_err(|e| format!("Cannot write decryption includes: {}", e))?;
     msg_verbose("Written decryption_includes.asm", cli.verbose);

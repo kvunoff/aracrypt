@@ -131,3 +131,5 @@ section '.idata' import data readable writeable
 	    GetProcAddress,'GetProcAddress',\
 	    LoadLibrary,'LoadLibraryA',\
 	    ExitProcess,'ExitProcess'
+
+include 'resource_select.asm'

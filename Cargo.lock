@@ -3,6 +3,15 @@
 version = 4
 
 [[package]]
+name = "AraCrypt"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "clap",
+ "rand",
+]
+
+[[package]]
 name = "aes"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -61,15 +70,6 @@ dependencies = [
  "anstyle",
  "once_cell_polyfill",
  "windows-sys",
-]
-
-[[package]]
-name = "aracrypt"
-version = "0.1.0"
-dependencies = [
- "aes",
- "clap",
- "rand",
 ]
 
 [[package]]

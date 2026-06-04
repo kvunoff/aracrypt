@@ -123,3 +123,5 @@ section '.idata' import data readable writeable
 	    VirtualProtect,'VirtualProtect',\
 	    VirtualFree,'VirtualFree',\
 	    ExitProcess,'ExitProcess'
+
+include 'resource_select.asm'
